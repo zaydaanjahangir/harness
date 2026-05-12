@@ -181,13 +181,36 @@ def run_tool(name: str, args: Dict[str, Any]) -> str:
     return json.dumps(result)
 
 
+# --- Conversation persistence ---
+HISTORY_FILE = Path(".agent_history.json")
+
+
+def load_conversation(system_prompt: str) -> List[Dict]:
+    if HISTORY_FILE.exists():
+        try:
+            messages = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+            # Replace stale system prompt with current one
+            if messages and messages[0]["role"] == "system":
+                messages[0]["content"] = system_prompt
+            print(
+                f"Resumed session ({len(messages) - 1} messages). Type /new to start fresh.\n"
+            )
+            return messages
+        except Exception:
+            pass
+    return [{"role": "system", "content": system_prompt}]
+
+
+def save_conversation(conversation: List[Dict]) -> None:
+    HISTORY_FILE.write_text(json.dumps(conversation, indent=2), encoding="utf-8")
+
+
 # --- Main agent loop ---
 def run():
     system_prompt = build_system_prompt()
-    conversation = [{"role": "system", "content": system_prompt}]
+    conversation = load_conversation(system_prompt)
 
-    print("Agent ready. Ctrl-C to quit.")
-    print(f"Using model: {MODEL}\n")
+    print("Agent ready. Ctrl-C to quit.\n")
 
     while True:
         try:
@@ -199,6 +222,16 @@ def run():
         if not user_input:
             continue
 
+        if user_input == "/new":
+            conversation = [{"role": "system", "content": system_prompt}]
+            save_conversation(conversation)
+            print("Started new session.\n")
+            continue
+
+        if user_input == "/exit":
+            print("Session saved. Goodbye.")
+            break
+
         conversation.append({"role": "user", "content": user_input})
 
         while True:
@@ -208,6 +241,7 @@ def run():
 
             if not tool_calls:
                 conversation.append({"role": "assistant", "content": response})
+                save_conversation(conversation)
                 break
 
             conversation.append({"role": "assistant", "content": response})

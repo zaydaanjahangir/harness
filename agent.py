@@ -1,6 +1,7 @@
 import inspect
 import json
 import os
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -87,10 +88,34 @@ def edit_file_tool(path: str, old_str: str, new_str: str) -> Dict[str, Any]:
     return {"path": str(full_path), "action": "edited"}
 
 
+def bash_tool(command: str, timeout: int = 30) -> Dict[str, Any]:
+    """
+    Runs a shell command and returns its output. Use for running tests, installing packages,
+    executing scripts, git operations, or any shell task. Avoid interactive commands.
+    :param command: The shell command to run.
+    :param timeout: Maximum seconds to wait before killing the command. Default is 30.
+    :return: stdout, stderr, and the exit code.
+    """
+    result = subprocess.run(
+        command,
+        shell=True,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        cwd=str(Path.cwd()),
+    )
+    return {
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "exit_code": result.returncode,
+    }
+
+
 TOOLS = {
     "read_file": read_file_tool,
     "list_files": list_files_tool,
     "edit_file": edit_file_tool,
+    "bash": bash_tool,
 }
 
 

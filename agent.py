@@ -14,7 +14,7 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
 )
 
-# Use whatever model model works
+# Use whatever model model works, streaming only works on paid models
 MODEL = "deepseek/deepseek-v4-flash"
 
 YOU_COLOR = "\033[94m"  # bright blue

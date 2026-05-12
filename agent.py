@@ -14,12 +14,14 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
 )
 
-MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+# Use whatever model model works, streaming only works on paid models
+MODEL = "deepseek/deepseek-v4-flash"
 
-YOU_COLOR = "\033[94m"
-TOOL_COLOR = "\033[92m"
-ASSISTANT_COLOR = "\033[93m"
-RESET = "\033[0m"
+YOU_COLOR = "\033[94m"  # bright blue
+TOOL_COLOR = "\033[92m"  # bright green
+ASSISTANT_COLOR = "\033[93m"  # bright yellow
+RESET = "\033[0m"  # reset
+
 
 SYSTEM_PROMPT = """You are a coding assistant that helps solve coding tasks.
 You have access to tools you can execute:
@@ -125,12 +127,20 @@ def parse_tool_calls(text: str) -> List[Tuple[str, Dict[str, Any]]]:
 
 # --- LLM call ---
 def call_llm(messages: List[Dict]) -> str:
-    response = client.chat.completions.create(
+    stream = client.chat.completions.create(
         model=MODEL,
         messages=messages,
         max_tokens=4096,
+        stream=True,
     )
-    return response.choices[0].message.content or "no output"
+    chunks = []
+    for chunk in stream:
+        delta = chunk.choices[0].delta.content if chunk.choices else None
+        if delta:
+            print(delta, end="", flush=True)
+            chunks.append(delta)
+    print()
+    return "".join(chunks)
 
 
 # --- Execute a single tool call ---
@@ -151,7 +161,8 @@ def run():
     system_prompt = build_system_prompt()
     conversation = [{"role": "system", "content": system_prompt}]
 
-    print("Agent ready. Ctrl-C to quit.\n")
+    print("Agent ready. Ctrl-C to quit.")
+    print(f"Using model: {MODEL}\n")
 
     while True:
         try:
@@ -166,11 +177,11 @@ def run():
         conversation.append({"role": "user", "content": user_input})
 
         while True:
+            print(f"{ASSISTANT_COLOR}Assistant{RESET}: ", end="", flush=True)
             response = call_llm(conversation)
             tool_calls = parse_tool_calls(response)
 
             if not tool_calls:
-                print(f"{ASSISTANT_COLOR}Assistant{RESET}: {response}\n")
                 conversation.append({"role": "assistant", "content": response})
                 break
 
